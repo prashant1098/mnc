@@ -262,7 +262,7 @@ void getIpClient(char *ip){
     int error = connect(sock, (const struct sockaddr*)&serv, sizeof(serv));
     if (error < 0)
     {
-        cout<<"\nError no:"<<errno;
+        // cout<<"\nError no:"<<errno;
     }
 
     struct sockaddr_in name;
@@ -277,7 +277,7 @@ void getIpClient(char *ip){
     }
     else
     {
-        cout << "\nError number: " << errno;
+        // cout << "\nError number: " << errno;
     }
 
     close(sock);
