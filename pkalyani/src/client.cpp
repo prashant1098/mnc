@@ -168,6 +168,57 @@ int createClient(int PORT)
 								cse4589_print_and_log("[%s:END]\n", command);
                             }
                         }
+                        else if(strncmp(command, "SEND", 4)==0){
+                            printf("\ninside send");
+                            char *token;
+                            int counter=0;
+                            char *input[1024];
+
+                            token = strtok(command," ");
+                            while(token!=NULL){
+                                input[counter] = token;
+                                counter+=1;
+                                token = strtok(NULL," ");
+                            }
+                            
+                            if(counter<2){
+								cse4589_print_and_log("[%s:ERROR]\n", command);
+								cse4589_print_and_log("[%s:END]\n", command);	
+								break;							
+							}
+
+                            char *targetIp ;
+                            char message[1024];
+                            memset(message,'\0',1024);
+                            strcat(message,"SEND ");
+                            strcat(message,input[1]);
+                            strcat(message," ");
+                            if(counter>=2){
+                                for(int i=2;i<counter;i++){
+                                    strcat(message,input[i]);
+                                    strcat(message," ");
+                                }
+                            }
+                            int flag = 1;
+                            for(int i = 0;i<clientNumber;i++){
+								if(strcmp(clientArray[i].ip_addr,input[1])==0){
+									flag = 1;
+									break;
+								}
+							}
+                            if(flag > 0){
+                                printf("\nMessage:%s",message);
+								if (send (client_fd, message, strlen(message), 0) > 0){
+									printf("Done in SEND\n");
+									cse4589_print_and_log("[%s:SUCCESS]\n", command);
+									cse4589_print_and_log("[%s:END]\n", command);
+								}
+							}
+							else{
+								cse4589_print_and_log("[%s:ERROR]\n", command);
+								cse4589_print_and_log("[%s:END]\n", command);
+							}
+                        }
                     }
                     else{
                         // cout<<"\nValue of i is:"<<i;
@@ -288,6 +339,7 @@ void processResFromServer(char *command){
     
     char *cmd;
     char *token = strtok(command," ");
+    char *senderIp;
     if(token!=NULL){
         cmd = token;
         token = strtok(NULL," ");
@@ -298,6 +350,32 @@ void processResFromServer(char *command){
     }
     else if(strcmp(cmd,"CLIST") == 0){
         updateStruct(token);
+    }
+    else if(strcmp(cmd,"msg_send") == 0){
+        char *temp[10];
+		int i = 0;
+        char messageClient[1024];
+        memset(messageClient,'\0',1024);
+    	while( token != NULL){
+
+			temp[i] = token;
+			i++;
+    		token = strtok (NULL, " ");
+
+		}
+		if(i<1){
+			cse4589_print_and_log("[RECEIVED:ERROR]\n");
+        	cse4589_print_and_log("[RECEIVED:END]\n");
+		}
+		if(i>=1){
+			for(int j = 1; j < i; j++){
+				strcat(messageClient,temp[j]);
+				strcat(messageClient," ");
+			}
+		}
+		cse4589_print_and_log("[RECEIVED:SUCCESS]\n");
+		cse4589_print_and_log("msg from:%s\n[msg]:%s\n", temp[0], messageClient);
+		cse4589_print_and_log("[RECEIVED:END]\n");
     }
 }
 

@@ -37,5 +37,6 @@ int listCommand(char *command);
 int processCmdFromClient(char *command, int sockIndex);
 void sendLoginUserList(int sockIndex, char *command);
 void sortList();
+int searchIpClient(char *ip);
 
 #endif

@@ -199,6 +199,92 @@ int processCmdFromClient(char *command, int sockIndex){
         sortList();
         sendLoginUserList(sockIndex,"CLIST");
     }
+    else if(strcmp("SEND",cmd) == 0){
+        char *senderIp;
+        char message[1024];
+        memset(message,'\0',1024);
+        senderIp = token;
+        strcat(message,"msg_send ");
+        strcat(message,clientIp);
+        strcat(message," ");
+        if(token!=NULL){
+            cmd = token;
+            token = strtok(NULL," ");
+         }
+        while(token!=NULL){
+            strcat(message,token);
+            strcat(message," ");
+            token = strtok(NULL," ");
+        }
+        fflush(stdout);
+        printf("\nMessage on server side:%s",message);
+        int target_socket = searchIpClient(senderIp);
+        printf("\nMessage on server side:%s for socket:%d",message,target_socket);
+        
+
+        // int n = 0;
+        // int if_login = check_if_login(c_ip);
+        // int if_block = check_if_block(c_ip,sender_ip);
+
+        target_socket = searchIpClient(senderIp);
+        if(send(target_socket, message, strlen(message),0)>0){
+					// n++;
+					// for (int i =0; i< client_num;i++){
+					// 	if(strcmp(clients[i].ip_addr,c_ip)==0){
+					// 		clients[i].recv_msg_num++;
+					// 		clients[sender_no].send_msg_num++;
+					// 		break;
+					// 	}
+					// }
+					fflush(stdout);
+		}
+
+		// if(if_login == 1 && if_block == 0){
+		// 	target_socket = search_client_by_ip(c_ip);
+		// 	if(target_socket > 0){
+		// 		if(send(target_socket, send_buf, strlen(send_buf),0)>0){
+		// 			n++;
+		// 			for (int i =0; i< client_num;i++){
+		// 				if(strcmp(clients[i].ip_addr,c_ip)==0){
+		// 					clients[i].recv_msg_num++;
+		// 					clients[sender_no].send_msg_num++;
+		// 					break;
+		// 				}
+		// 			}
+		// 			fflush(stdout);
+		// 		}
+		// 	}
+		// }else if(if_login == 0 && if_block == 0){
+		// 	if( target_socket = search_client_by_ip(c_ip)>0){
+		// 		for (int i =0; i< client_num;i++){
+		// 			if(strcmp(clients[i].ip_addr,c_ip)==0&&clients[i].buffered_msg<100){
+		// 				strcpy(clients[i].msg_buffer[clients[i].buffered_msg],send_buf);
+		// 				n++;
+		// 				clients[i].buffered_msg++;
+		// 				clients[sender_no].send_msg_num++;
+		// 				break;
+		// 			}
+		// 		}
+		// 	}
+		// }
+		// else{
+        // 	cse4589_print_and_log("[RELAYED:ERROR]\n");
+        // 	cse4589_print_and_log("[RELAYED:END]\n");
+		// }
+
+		// if(n > 0){
+		// 	cse4589_print_and_log("[RELAYED:SUCCESS]\n");
+		// 	cse4589_print_and_log("msg from:%s, to:%s\n[msg]:%s\n", sender_ip, c_ip, c_msg);
+		// 	cse4589_print_and_log("[RELAYED:END]\n");
+		// }else{
+		// 	cse4589_print_and_log("[RELAYED:ERROR]\n");
+		// 	cse4589_print_and_log("[RELAYED:END]\n");
+		// }
+
+		// bzero(send_buf,BUFFER_SIZE);
+
+
+    }
     else if(strcmp("BLOCKIP",cmd) == 0){
         char ip[128];
         memset(ip,'\0',128);
@@ -221,6 +307,19 @@ int processCmdFromClient(char *command, int sockIndex){
     return 0;
    
 }
+
+int searchIpClient(char *ip){
+	int socket = 0;
+	for(int i = 0; i< clientNo; i++){
+		
+		if(strcmp(clients[i].ip_addr,ip) == 0){
+			socket = clients[i].socketId;
+			return socket;
+			break;
+		}	
+	}	
+}
+
 
 void sendLoginUserList(int sockIndex, char *command){
     cout<<"\nInside send login user list";
