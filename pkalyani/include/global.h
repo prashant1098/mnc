@@ -12,32 +12,30 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
-#include<string.h>
-#include <vector>
 using namespace std;
 #define HOSTNAME_LEN 128
 #define PATH_LEN 256
 
 
 int createClient(int port);
-void displayAuthor(std::string command);
-void displayIp(std::string command, string ip);
-void displayPort(std::string command, int port);
-std::string getIpClient();
-void processResFromServer(std::string command);
-void updateStruct(vector<string> &tokens);
-int login(std::string cmd, int client_fd);
+void displayAuthor(char *command);
+void displayIp(char *command, char *ip);
+void displayPort(char *command, int port);
+void getIpClient(char *ip);
+void processResFromServer(char *command);
+void updateStruct(char *tokens);
+int login(char *command, int client_fd);
 int addToClients(int fdaccept, struct sockaddr_in client_addr, int i, int client_port);
-int isValidAddr(string addr, string port);
+int isValidAddr(char *addr, char *port);
 
 int createServer(int port);
-std::string getIp();
-int authorCommand(std::string command);
-int ipCommand(std::string ip, std::string command);
-int portCommand(int socket, std::string command, int port);
-int listCommand(std::string command);
-int processCmdFromClient(string command, int sockIndex);
-void sendLoginUserList(int sockIndex, std::string command);
+void getIp(char *ip);
+int authorCommand(char *command);
+int ipCommand(char *ip, char *command);
+int portCommand(char *command, int port);
+int listCommand(char *command);
+int processCmdFromClient(char *command, int sockIndex);
+void sendLoginUserList(int sockIndex, char *command);
 void sortList();
 
 #endif

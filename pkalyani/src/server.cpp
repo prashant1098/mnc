@@ -17,15 +17,15 @@ int clientNo;
 struct client{
 	int socketId;
 	int no;
-	string hostName;
-	string ipAddr;
+	char hostname[256];
+	char ip_addr[INET_ADDRSTRLEN];
 	int portNo;
-	string blockedList[10];
+	char blockedList[20][INET_ADDRSTRLEN];
 	int blockedNum;
     int loginStatus;
     int sendMsgNum;
     int recvMsgNum;
-    string msgBuffer[100];
+    char msgBuffer[100][1024];
 	int bufferMsg;
 }clients[5];
 
@@ -71,11 +71,10 @@ int createServer(int PORT)
    
     FD_SET(server_fd, &current_socket);
     FD_SET(0, &current_socket);
-
+    char ipAddr[20];
     maxIndex = server_fd;
-    string ipAddr;
-    ipAddr = getIp();
-    // cout<<"\n server ip is:"<<ipAddr;
+    getIp(ipAddr);
+    cout<<"\n server ip is:"<<ipAddr;
     while (true)
     {
         memcpy(&ready_socket, &current_socket, sizeof(current_socket));
@@ -85,26 +84,31 @@ int createServer(int PORT)
         }
         if(selectReturn>0){
             int i = 0;
-            string command;
             while(i<=maxIndex){
                 if(FD_ISSET(i,&ready_socket)){
                     if(i==0){
-                        getline(std::cin,command,'\n');
-                        // cout<<"\nSever got command:"<<command;
-                         if((command.compare("AUTHOR"))==0){
+                        char command[512];
+                        char serverMsg[512];
+                        memset(command, '\0', 512);
+                        // getline(std::cin,command,'\n');
+                        if(fgets(command, 512-1, stdin) == NULL) 
+							exit(-1);
+                        // printf("\nServer got: %s\n", command);
+						command[strlen(command)-1]='\0';
+                         if(strcmp(command, "AUTHOR") == 0){
                             authorCommand(command);
                         }
-                         else if((command.compare("IP"))==0){
+                         else if(strcmp(command, "IP") == 0){
                             ipCommand(ipAddr,command);
                          }
-                         else if((command.compare("PORT"))==0){
-                            portCommand(server_fd,command,PORT);
+                         else if(strcmp(command, "PORT") == 0){
+                            portCommand(command,PORT);
                          }
-                         else if((command.compare("EXIT"))==0){
+                         else if(strcmp("EXIT",command) == 0){
                             close(server_fd);
 							exit(0);
                          }
-                         else if((command.compare("LIST"))==0){
+                         else if(strcmp("LIST",command)==0){
                             listCommand(command);
                          }
                     
@@ -112,21 +116,21 @@ int createServer(int PORT)
                     }
                     else if(i==server_fd){
                         // printf("\nAccepting connection");
-                        string buffer;
                         struct sockaddr_in client_addr;
                         caddr_len = sizeof(client_addr);
                         fdaccept = accept(server_fd, (struct sockaddr *)&client_addr, &caddr_len);
                          if(fdaccept < 0){
-                                 printf("\nAccept failed");
+                                //  printf("\nAccept failed");
                          }
                         FD_SET(fdaccept, &current_socket);
+                        // printf("\nFD_SET");
                         clientNo = addToClients(fdaccept, client_addr, clientNo, 0);
                         if(fdaccept > maxIndex) maxIndex = fdaccept;
                     } 
                     else{
-                        // cout<<"\nReceiving command from client";
-                        char *buffer = (char*) malloc(sizeof(char)*1024);
-                        memset(buffer, '\0', 1024);
+                        cout<<"\nReceiving command from client";
+                        char buffer[1024];
+                        memset(buffer,'\0',1024);
                         if(recv(i, buffer, 1024, 0) <= 0){
                                 close(i);
                                 // printf("\nRemote Host terminated connection!\n");
@@ -135,12 +139,12 @@ int createServer(int PORT)
                         }
                         else {
                                 
-                                char *cmd = buffer;
-                                // printf("\nClient sent me: %s\n", cmd);
-                                processCmdFromClient(string(cmd), i);	                        	
+                                // char *cmd = buffer;
+                                // printf("\nClient sent me: %s\n", buffer);
+                                processCmdFromClient(buffer, i);	                        	
                                 fflush(stdout);
                         }
-                        free(buffer);
+                        // free(buffer);
                     }
                 }
                 i+=1;
@@ -151,106 +155,124 @@ int createServer(int PORT)
     return 0;
 }
 
-int processCmdFromClient(string command, int sockIndex){
+int processCmdFromClient(char *command, int sockIndex){
 
-	string clientIp;
+	char *clientIp;
     int structIndex, i= 0;
-    // cout<<"\nsocket index:"<<sockIndex;
+    cout<<"\nsocket index:"<<sockIndex;
     while(i<clientNo){
         if(sockIndex==clients[i].socketId){
-            clientIp = clients[i].ipAddr;
+            clientIp = clients[i].ip_addr;
             structIndex = i;
             break;
         }
         i+=1;
     }
-    // cout<<"\nstruct index:"<<structIndex;
-    vector <string> tokens;
-    stringstream check1(command);
-    string intermediate;
-    while(getline(check1, intermediate, ' '))
-    {
-        tokens.push_back(intermediate);
+    char *cmd;
+    char *token = strtok(command," ");
+    if(token!=NULL){
+        cmd = token;
+        token = strtok(NULL," ");
     }
-    // cout<<"\n The command from client is:"<<tokens[0];
-    if((tokens[0].compare("LOGOUT"))==0){
+    else{
+        cmd = command;
+    }
+    // printf("CMD:%s\n", cmd);
+
+    if(strcmp("LOGOUT",cmd) == 0){
         clients[structIndex].loginStatus = 0;
         close(sockIndex);
         FD_CLR(sockIndex,&current_socket);
     }
-    else if((tokens[0].compare("REFRESH"))==0){
+    else if(strcmp("REFRESH",cmd) == 0){
         sortList();
         sendLoginUserList(sockIndex,"REFRESH");
     }
-    else if((tokens[0].compare("PORT_SEND"))==0){
-        // cout<<"\n Inside port send";
-        clients[structIndex].portNo = std::stoi(tokens[1]);
-        clients[structIndex].loginStatus=1;
-        // cout<<"\nclient port number"<<clients[structIndex].portNo;
+    else if(strcmp("PORT_SEND",cmd) == 0){
+        cout<<"\n Inside port send";
+        char tempArray[256];
+        memset(tempArray, '\0', 256);
+        strcpy(tempArray,token);
+        clients[structIndex].portNo = atoi(tempArray);
+        clients[structIndex].loginStatus = 1;
+        cout<<"\nclient port number"<<clients[structIndex].portNo;
         sortList();
         sendLoginUserList(sockIndex,"CLIST");
     }
-    else if((tokens[0].compare("BLOCKIP"))==0){
-        int i =0;
-        while(i<clientNo){
-            if (clients[i].socketId == sockIndex){
-                clients[i].blockedList[clients[i].blockedNum] = tokens[1];
-                clients[i].blockedNum+=1;
+    else if(strcmp("BLOCKIP",cmd) == 0){
+        char ip[128];
+        memset(ip,'\0',128);
+        strcat(ip,token);
+        strcat(clients[i].blockedList[clients[i].blockedNum],ip);
+        clients[i].blockedNum+=1;
+    }
+    else if(strcmp("UNBLOCKIP",cmd) == 0){
+        char ip[128];
+        memset(ip,'\0',128);
+        strcat(ip,token);
+        for(int j=0;j<clients[structIndex].blockedNum;j++){
+            if(strcmp(clients[structIndex].blockedList[j],ip)==0){
+                bzero(clients[structIndex].blockedList[j],INET_ADDRSTRLEN);
                 break;
             }
-            i+=1;
         }
     }
-    else if((tokens[0].compare("UNBLOCKIP"))==0){
-        int i =0;
-        while(i<clientNo){
-            if (clients[i].socketId == sockIndex){
-                int j= 0;
-                while(j<clients[i].blockedNum){
-                    if(clients[i].blockedList[j]==tokens[1]){
-                        clients[i].blockedList[j].clear();
-                    }
-                    j+=1;
-                }
-            }
-            }
-            i+=1;
-        }
     
     return 0;
    
 }
 
-void sendLoginUserList(int sockIndex, string command){
-    // cout<<"\nInside send login user list";
-    string clientMessage;
+void sendLoginUserList(int sockIndex, char *command){
+    cout<<"\nInside send login user list";
+    char clientMessage[1024];
+    memset(clientMessage, '\0', 1024);
     char message[1024];
+    memset(message, '\0', 1024);
+    char tempArray[256];
     int i =0;
-    clientMessage = command + " ";
+    strcpy(clientMessage,command);
+    strcat(clientMessage," ");
     while(i<clientNo){
         if(clients[i].loginStatus>0){
-            clientMessage =  clientMessage + "no:" + std::to_string(clients[i].no);
-            clientMessage+=",";
-            clientMessage =  clientMessage + "hostname:" + clients[i].hostName;
-            clientMessage+=",";
-            clientMessage =  clientMessage + "ip:" + clients[i].ipAddr;
-            clientMessage+=",";
-            clientMessage =  clientMessage + "port:" + to_string(clients[i].portNo);
-            clientMessage+=" ";
+            // printf("\nclient no:%d",clients[i].no);
+            strcat(clientMessage,"no:");
+            memset(tempArray, '\0', 256);
+            sprintf(tempArray,"%d",clients[i].no);
+            strcat(clientMessage,tempArray);
+            strcat(clientMessage,",");
+            // clientMessage =  clientMessage + "hostname:" + clients[i].hostName;
+            // printf("\nhost no:%s",clients[i].hostname);
+            strcat(clientMessage,"hostname:");
+            strcat(clientMessage,clients[i].hostname);
+            strcat(clientMessage,",");
+            // clientMessage =  clientMessage + "ip:" + clients[i].ipAddr;
+            // printf("\nip no:%s",clients[i].ip_addr);
+            strcat(clientMessage,"ip:");
+            strcat(clientMessage,clients[i].ip_addr);
+            strcat(clientMessage,",");
+            // clientMessage =  clientMessage + "port:" + to_string(clients[i].portNo);
+            // printf("\nport no:%d",clients[i].portNo);
+            strcat(clientMessage,"port:");
+            memset(tempArray, '\0', 256);
+            sprintf(tempArray,"%d",clients[i].portNo);
+            strcat(clientMessage,tempArray);
+            strcat(clientMessage," ");
         }
         i+=1;
     }
-    // cout<<"\nMessage for client:"<<clientMessage;
-    strcpy(message, clientMessage.c_str());
+    cout<<"\nMessage for client:"<<clientMessage;
+    strcpy(message, clientMessage);
     int check = send(sockIndex, message, sizeof(message), 0);
     if(check>0){
-        // cout<<"\nDone "<<command;
+        cout<<"\nDone "<<clientMessage;
     }
     fflush(stdout);
 }
+
+
 	
 void sortList(){
-    // cout<<"\nInside sort list";
+    cout<<"\nInside sort list";
     struct client temp;
     int i = 1;
     int j, port;
@@ -269,45 +291,45 @@ void sortList(){
 }
 
 
-int listCommand(string command){
-    cse4589_print_and_log("[%s:SUCCESS]\n", command.c_str());
+int listCommand(char *command){
+    cse4589_print_and_log("[%s:SUCCESS]\n", command);
     for (int i = 0; i < clientNo; i++){
 
         if(clients[i].loginStatus == 1){
 
-            cse4589_print_and_log("%-5d%-35s%-20s%-8d\n",clients[i].no,clients[i].hostName.c_str(),clients[i].ipAddr.c_str(),clients[i].portNo);
+            cse4589_print_and_log("%-5d%-35s%-20s%-8d\n",clients[i].no,clients[i].hostname,clients[i].ip_addr,clients[i].portNo);
 
         }
     }
-    cse4589_print_and_log("[%s:END]\n", command.c_str());  
+    cse4589_print_and_log("[%s:END]\n", command);  
     return 0;
 }
 
-int authorCommand(string command){
+int authorCommand(char *command){
     char ubName[10] = "pkalyani";
-    cse4589_print_and_log("[%s:SUCCESS]\n", command.c_str()); 
+    cse4589_print_and_log("[%s:SUCCESS]\n", command); 
 	cse4589_print_and_log("I, %s, have read and understood the course academic integrity policy.\n", ubName);
-	cse4589_print_and_log("[%s:END]\n", command.c_str());
+	cse4589_print_and_log("[%s:END]\n", command);
     return 0;
 }
 
-int ipCommand(string ip, string command){
+int ipCommand(char *ip, char *command){
 
-	cse4589_print_and_log("[%s:SUCCESS]\n", command.c_str());
-	cse4589_print_and_log("IP:%s\n", ip.c_str());
-	cse4589_print_and_log("[%s:END]\n", command.c_str());
+	cse4589_print_and_log("[%s:SUCCESS]\n", command);
+	cse4589_print_and_log("IP:%s\n", ip);
+	cse4589_print_and_log("[%s:END]\n", command);
 
 	return 0;
 }
 
-int portCommand(int socket, string command, int port){
-    cse4589_print_and_log("[%s:SUCCESS]\n", command.c_str());
+int portCommand(char *command, int port){
+    cse4589_print_and_log("[%s:SUCCESS]\n", command);
 	cse4589_print_and_log("PORT:%d\n", port);
-	cse4589_print_and_log("[%s:END]\n", command.c_str());
+	cse4589_print_and_log("[%s:END]\n", command);
     return 0;
 }
 
-std::string getIp(){
+void getIp(char *ip){
     char* dnsServer = "8.8.8.8";
     int dnsPort = 53;
 
@@ -334,10 +356,10 @@ std::string getIp(){
     int err = getsockname(sock, (struct sockaddr*)&name, &namelen);
 
     char buffer[80];
-    const char* p = inet_ntop(AF_INET, &name.sin_addr, buffer, 80);
+    const char* p = inet_ntop(AF_INET, &name.sin_addr, ip, 80);
     if(p != NULL)
     {
-        return(std::string(buffer));
+        // printf("\nserver ip is:%s",ip);
     }
     else
     {
@@ -345,32 +367,32 @@ std::string getIp(){
     }
 
     close(sock);
-    return "";
+
 }
 
 int addToClients(int fdaccept, struct sockaddr_in client_addr, int j, int client_port){
-	// cout<<"\nInside client";
+	// printf("\nInside client");
     int i = 0;
-    char *ip_addr;
-    ip_addr = inet_ntoa(client_addr.sin_addr);
-    // while(i<clientNo){
-    //     if(clients[i].ipAddr.compare(std::string(ip_addr))==0 && clients[i].portNo==client_port){
-    //         return j;
-    //     }
-    // }
+    char *ip_addr = inet_ntoa(client_addr.sin_addr);
+    while(i<clientNo){
+        if(strcmp(clients[i].ip_addr,ip_addr)==0){
+            return j;
+        }
+    }
 
 	char host[1024];
 	char service[20];
 	clients[j].socketId = fdaccept;
 	clients[j].no = j + 1;
 	getnameinfo((struct sockaddr *) &client_addr, sizeof client_addr, host, sizeof host, service, sizeof service, 0);
-    // cout<<"\nhost:"<<host;
-	clients[j].hostName = std::string(host);
-	clients[j].ipAddr = std::string(inet_ntoa(client_addr.sin_addr));
+    // printf("\nHost%s",host);
+    // printf("\nIp:%s",ip_addr);
+	strcpy(clients[j].hostname, host);
+	strcpy(clients[j].ip_addr, ip_addr);
 	clients[j].loginStatus = 1;
 	clients[j].sendMsgNum = 0;
 	clients[j].recvMsgNum = 0;
 	clients[j].blockedNum = 0;
-    // cout<<"\nvalue of j:"<<j+1;
+    // printf("\nvalue of j:%d",j);
 	return j+1;
 }

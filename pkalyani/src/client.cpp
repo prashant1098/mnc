@@ -6,9 +6,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <iostream>
-#include <bits/stdc++.h>
-#include <vector>
-#include <cstring>
 using namespace std;
 #include "../include/global.h"
 #include "../include/logger.h"
@@ -18,10 +15,10 @@ int clientNumber ;
 struct clientside{
 	int socketId;
 	int no;
-	string hostName;
-	string ipAddr;
+	char hostname[256];
+	char ip_addr[INET_ADDRSTRLEN];
 	int portNo;
-	char blockedList[10][INET_ADDRSTRLEN];
+	char blockedList[20][INET_ADDRSTRLEN];
 	int blockedNum;
     int loginStatus;
     int sendMsgNum;
@@ -31,8 +28,7 @@ struct clientside{
 }clientArray[5];
 int createClient(int PORT)
 {
-    string clientIp;
-    vector <string> tokens;
+    char clientIp[20];
     char serverMsgChar[1024];
     int sock = 0, valread, client_fd,maxIndex;
     struct sockaddr_in clientAddr;
@@ -42,7 +38,8 @@ int createClient(int PORT)
 
     FD_SET(0, &current_sock);
     maxIndex = 0;
-    clientIp = getIpClient();
+    getIpClient(clientIp);
+    // printf("\nclient ip%s",clientIp);
     while(true){
         ready_sock = current_sock;
         int selectReturn = select(maxIndex+1,&ready_sock,NULL,NULL,NULL);
@@ -52,114 +49,139 @@ int createClient(int PORT)
         if(selectReturn>0){
             int i = 0;
             string final;
-            string command;
             while(i<=maxIndex){
                 if(FD_ISSET(i,&ready_sock)){
                     if(i==0){
-                        getline(std::cin,command,'\n');
-                        if((command.compare(0,5,"LOGIN"))==0){
+                        char command[512];
+                        char serverMsg[512];
+                        memset(command, '\0', 512);
+                        // getline(std::cin,command,'\n');
+                        if(fgets(command, 512-1, stdin) == NULL) 
+							exit(-1);
+                        // printf("\nClient got: %s\n", command);
+						command[strlen(command)-1]='\0';
+                        if(strncmp(command, "LOGIN", 5) == 0){
                             client_fd = socket(AF_INET, SOCK_STREAM, 0);
                             if(client_fd<0){
 
                                 perror("Failed to create socket");
                             }
-                            serverMsg = "PORT_SEND " + to_string(PORT);
-                            strcpy(serverMsgChar, serverMsg.c_str());
+                            char tempArray[256];
+                            memset(serverMsg, '\0', 512);
+                            memset(tempArray, '\0', 256);
+                            sprintf(tempArray,"%d",PORT);
+                            tempArray[strlen(tempArray)]='\0';
+                            strcat(serverMsg,"PORT_SEND ");
+                            strcat(serverMsg,tempArray);
+                            // printf("\nPort: %s\n", tempArray);
+                            serverMsg[strlen(serverMsg)]='\0';
                             login(command, client_fd);
                             FD_SET(client_fd, &current_sock);
                             if(client_fd > maxIndex) maxIndex = client_fd;
-                            if(send(client_fd, serverMsgChar,strlen(serverMsgChar),0) == strlen(serverMsgChar)) 
-								printf("Done in port send!\n");
+                            if(send(client_fd, serverMsg,strlen(serverMsg),0) == strlen(serverMsg)) 
+								// printf("Done in port send!\n");
                             fflush(stdout);
                         }
-                        else if((command.compare("AUTHOR"))==0){
+                        else if(strcmp(command, "AUTHOR") == 0){
                             displayAuthor(command);
                         }
-                        else if((command.compare("IP"))==0){
+                        else if(strcmp(command, "IP") == 0){
                             displayIp(command,clientIp);
                         }
-                        else if((command.compare("PORT"))==0){
+                        else if(strcmp(command, "PORT") == 0){
                             displayPort(command,PORT);
                         }
-                        else if((command.compare("REFRESH"))==0){
+                        else if(strcmp(command, "REFRESH") == 0){
                             const char *str = "REFRESH";
 							if(send(client_fd, str, strlen(str), 0) == strlen(str)){
 
-								cse4589_print_and_log("[%s:SUCCESS]\n", command.c_str());
-								cse4589_print_and_log("[%s:END]\n", command.c_str());
+								cse4589_print_and_log("[%s:SUCCESS]\n", command);
+								cse4589_print_and_log("[%s:END]\n", command);
 							}
                         }
-                        else if((command.compare("LOGOUT"))==0){
+                        else if(strcmp(command, "LOGOUT") == 0){
                             const char *str = "LOGOUT";
 							if(send(client_fd,str, strlen(str), 0) == strlen(str)){
 
 								close(client_fd);
 								FD_CLR(client_fd,&current_sock);
-								cse4589_print_and_log("[%s:SUCCESS]\n", command.c_str());
-								cse4589_print_and_log("[%s:END]\n", command.c_str());
+								cse4589_print_and_log("[%s:SUCCESS]\n", command);
+								cse4589_print_and_log("[%s:END]\n", command);
 
 							}
                         }
-                        else if((command.compare("EXIT"))==0){
+                        else if(strcmp(command,"EXIT") == 0){
                             close(client_fd);
 							exit(0);
                         }
-                        else if((command.compare("LIST"))==0){
-                                cse4589_print_and_log("[%s:SUCCESS]\n", command.c_str());
+                        else if(strcmp(command,"LIST") == 0){
+                                cse4589_print_and_log("[%s:SUCCESS]\n", command);
 							
                                 for (int i = 0; i < clientNumber; i++){
                                 
-                                        cse4589_print_and_log("%-5d%-35s%-20s%-8d\n",clientArray[i].no,clientArray[i].hostName.c_str(),clientArray[i].ipAddr.c_str(),clientArray[i].portNo);
+                                        cse4589_print_and_log("%-5d%-35s%-20s%-8d\n",clientArray[i].no,clientArray[i].hostname,clientArray[i].ip_addr,clientArray[i].portNo);
                                                                     
                                     }
-							    cse4589_print_and_log("[%s:END]\n", command.c_str());  
+							    cse4589_print_and_log("[%s:END]\n", command);  
 						    }
-                        else if((command.compare(0,5,"BLOCK"))==0){
-                            string commandBlock;
-                            vector<string> tokens;
-                            stringstream check1(command);
-                            string intermediate;
-                            while(getline(check1, intermediate, ' '))
-                            {
-                                tokens.push_back(intermediate);
+                        else if(strncmp(command, "BLOCK", 5)==0){
+                            char *token;
+                            char *ip;
+                            int counter = 0;
+                            token = strtok(command," ");
+                            while(token!=NULL){
+                                if(counter=1){
+                                    ip = token;
+                                }
+                                counter++;
+                                token = strtok (NULL, " ");
                             }
-                            commandBlock = "BLOCKIP " + tokens[1];
-                            if(send(client_fd, commandBlock.c_str(),strlen(commandBlock.c_str()),0) == strlen(commandBlock.c_str())){
-                                cout<<"\nBlock executed";
-                                cse4589_print_and_log("[%s:SUCCESS]\n", command.c_str());
-								cse4589_print_and_log("[%s:END]\n", command.c_str());
-                            }
+                            char message[256];
+                            memset(message,'\0',256);
+                            strcat(message,"BLOCKIP");
+                            strcat(message,ip);
+                            if (send (client_fd, message, strlen(message), 0) > 0){
+								// printf("Done in BLOCK\n");
+								cse4589_print_and_log("[%s:SUCCESS]\n", command);
+								cse4589_print_and_log("[%s:END]\n", command);
+							}
                         }
-                        else if((command.compare(0,7,"UNBLOCK"))==0){
-                            string commandBlock;
-                            vector<string> tokens;
-                            stringstream check1(command);
-                            string intermediate;
-                            while(getline(check1, intermediate, ' '))
-                            {
-                                tokens.push_back(intermediate);
+                        else if(strncmp(command, "UNBLOCK", 7)==0){
+                            char *token;
+                            char *ip;
+                            int counter = 0;
+                            token = strtok(command," ");
+                            while(token!=NULL){
+                                if(counter=1){
+                                    ip = token;
+                                }
+                                counter++;
+                                token = strtok (NULL, " ");
                             }
-                            commandBlock = "UNBLOCKIP " + tokens[1];
-                            if(send(client_fd, commandBlock.c_str(),strlen(commandBlock.c_str()),0) == strlen(commandBlock.c_str())){
+                            char message[256];
+                            memset(message,'\0',256);
+                            strcat(message,"UNBLOCKIP");
+                            strcat(message,ip);
+                            if(send(client_fd, message,strlen(message),0) == strlen(message)){
                                 cout<<"\nUNBlock executed";
-                                cse4589_print_and_log("[%s:SUCCESS]\n", command.c_str());
-								cse4589_print_and_log("[%s:END]\n", command.c_str());
+                                cse4589_print_and_log("[%s:SUCCESS]\n", command);
+								cse4589_print_and_log("[%s:END]\n", command);
                             }
                         }
                     }
                     else{
                         // cout<<"\nValue of i is:"<<i;
-                        char *buffer = (char*) malloc(sizeof(char)*1024);
+                        char buffer[1024];
                         memset(buffer, '\0', 1024);
                         if(recv(i, buffer, 1024, 0) <= 0){
                             close(i);
-                            printf("EROROR\n");
+                            // printf("EROROR\n");
                             FD_CLR(i, &current_sock);
                         }
                         else {
-                        	char *cmd = buffer;
-	                       	// printf("\nClient sent me: %s\n", cmd);
-							processResFromServer(string(cmd));	                        	
+        
+	                       	// printf("\nClient sent me: %s\n", buffer);
+							processResFromServer(buffer);	                        	
 							fflush(stdout);
                         }
 
@@ -172,11 +194,11 @@ int createClient(int PORT)
     return 0;
 }
 
-int isValidAddr(string addr, string port){
+int isValidAddr(char addr[], char port[]){
     int ret = 1;
     int i =0;
     // cout<<"addr length:"<<addr.length()<<"port length:"<<port.length();
-    while(i<addr.length()){
+    while(i<INET_ADDRSTRLEN){
         if(addr[i] == '\0') break;
         if(addr[i] == '.'){
             i+=1;
@@ -190,7 +212,7 @@ int isValidAddr(string addr, string port){
         i+=1;
     }
     i=0;
-    while(i<port.length()){
+    while(i<512){
         if(port[i] == '\0') break;
         int t = port[i] - '0';
         if(t<0 || t>9) {
@@ -202,26 +224,26 @@ int isValidAddr(string addr, string port){
     return ret;
 }
 
-void displayAuthor(string command){
+void displayAuthor(char *command){
     char ubName[10] = "pkalyani";
-    cse4589_print_and_log("[%s:SUCCESS]\n", command.c_str()); 
+    cse4589_print_and_log("[%s:SUCCESS]\n", command); 
 	cse4589_print_and_log("I, %s, have read and understood the course academic integrity policy.\n", ubName);
-	cse4589_print_and_log("[%s:END]\n", command.c_str());
+	cse4589_print_and_log("[%s:END]\n", command);
 }
 
-void displayIp(string command, string ip){
-    cse4589_print_and_log("[%s:SUCCESS]\n", command.c_str());
-	cse4589_print_and_log("IP:%s\n", ip.c_str());
-	cse4589_print_and_log("[%s:END]\n", command.c_str());
+void displayIp(char *command, char *ip){
+    cse4589_print_and_log("[%s:SUCCESS]\n", command);
+	cse4589_print_and_log("IP:%s\n", ip);
+	cse4589_print_and_log("[%s:END]\n", command);
 }
 
-void displayPort(string command, int port){
-    cse4589_print_and_log("[%s:SUCCESS]\n", command.c_str());
+void displayPort(char *command, int port){
+    cse4589_print_and_log("[%s:SUCCESS]\n", command);
 	cse4589_print_and_log("PORT:%d\n", port);
-	cse4589_print_and_log("[%s:END]\n", command.c_str());
+	cse4589_print_and_log("[%s:END]\n", command);
 }
 
-std::string getIpClient(){
+void getIpClient(char *ip){
     char* dnsServer = "8.8.8.8";
     int dnsPort = 53;
 
@@ -248,10 +270,10 @@ std::string getIpClient(){
     int err = getsockname(sock, (struct sockaddr*)&name, &namelen);
 
     char buffer[80];
-    const char* p = inet_ntop(AF_INET, &name.sin_addr, buffer, 80);
+    const char* p = inet_ntop(AF_INET, &name.sin_addr, ip, 80);
     if(p != NULL)
     {
-        return(std::string(buffer));
+        // printf("\nIp is:%s",ip);
     }
     else
     {
@@ -259,98 +281,111 @@ std::string getIpClient(){
     }
 
     close(sock);
-    return "";
 }
 
-void processResFromServer(string command){
-    // cout<<"\nMessage from server:"<<command;
-    vector <string> tokens;
-    stringstream check1(command);
-    string intermediate;
-    while(getline(check1, intermediate, ' '))
-    {
-        tokens.push_back(intermediate);
+void processResFromServer(char *command){
+    // printf("Inside res from server %s",command);
+    
+    char *cmd;
+    char *token = strtok(command," ");
+    if(token!=NULL){
+        cmd = token;
+        token = strtok(NULL," ");
     }
-    if((tokens[0].compare("CLIST"))==0){
-        updateStruct(tokens);
+    // printf("CMD:%s\n", cmd);
+    if(strcmp(cmd,"REFRESH") == 0){
+        updateStruct(token);
     }
-    else if((tokens[0].compare("REFRESH"))==0){
-        updateStruct(tokens);
+    else if(strcmp(cmd,"CLIST") == 0){
+        updateStruct(token);
     }
 }
 
-void updateStruct(vector<string> &tokens)
+void updateStruct(char *tokens)
 {
     clientNumber = 0;
-        for(int i=1;i<tokens.size();i++){
-            if(tokens[i]!=" ")
-                {
-                    vector <string> innerTokens;
-                    stringstream check(tokens[i]);
-                    string inter;
-                    while(getline(check, inter, ','))
-                    {
-                        innerTokens.push_back(inter);
-                    }
-                    for(int i=0;i<innerTokens.size();i++){
-                        vector <string> temp;
-                        stringstream check2(innerTokens[i]);
-                        string s;
-                        while(getline(check2, s, ':'))
-                        {
-                            temp.push_back(s);
-                        }
-                        if (temp[0]=="no"){
-                            clientArray[clientNumber].no = stoi(temp[1]);
-                        }
-                        else if(temp[0]=="hostname"){
-                            clientArray[clientNumber].hostName = temp[1];
-                        }
-                        else if(temp[0]=="ip"){
-                            clientArray[clientNumber].ipAddr = temp[1];
-                        }
-                        else if(temp[0]=="port"){
-                            clientArray[clientNumber].portNo = stoi(temp[1]);
-                        }
-                        temp.clear();
-                    }
-                    clientNumber+=1 ;
-                    innerTokens.clear();
-                }  
+    char temp[100];
+    memset(temp,'\0',100);
+    char *values[50];
+    char *inner;
+    // printf("\tokens:%s",tokens);
+    while(tokens!=NULL){
+        values[clientNumber]=tokens;
+        clientNumber+=1;
+        tokens = strtok (NULL, " ");
+    }
+
+    for(int i=0;i<clientNumber;i++){
+
+        printf("\nValues:%s",values[i]);
+        char *inner = strtok(values[i], ",");
+        char *p[10];
+        int j = 0 ;
+        while(inner!=NULL){
+            // printf("\nInner:%s",inner);
+            p[j] = inner;
+            inner = strtok(NULL, ",");
+            j+=1;
         }
+        int k =0 ;
+        while(k<j){
+            char *value = strtok(p[k], ":");
+            char *key;
+            if(value!=NULL){
+                key = value;
+                value = strtok(NULL, ":");
+                // printf("\nvalue:%s",value);
+                if(strcmp(key,"no")==0){
+                    clientArray[i].no = atoi(value);
+                    // printf("\n no:%d",clientArray[i].no);
+                }
+                else if(strcmp(key,"hostname")==0){
+                    strcpy(clientArray[i].hostname,value);
+                    // printf("\n hostname:%s",clientArray[i].hostname);
+                }
+                else if(strcmp(key,"ip")==0){
+                    strcpy(clientArray[i].ip_addr,value);
+                    // printf("\n ip_addr:%s",clientArray[i].ip_addr);
+                }
+                else if(strcmp(key,"port")==0){
+                    clientArray[i].portNo = atoi(value);
+                    // printf("\n portNo:%d",clientArray[i].portNo);
+                }
+            }
+            k+=1;
+        }
+    }
         // cout<<"\nServer side client list:"<<clientArray;
 }
 
 
-int login(string command, int client_fd){
-    vector <string> tokens;
-    stringstream check1(command);
-    string intermediate;
+int login(char *command, int client_fd){
     int loginPort;
+    int counter = 0;
+    char *token = strtok(command, " ");
+    char *values[3];
     struct sockaddr_in remote_server_addr;
-    while(getline(check1, intermediate, ' '))
-    {
-        tokens.push_back(intermediate);
+    while(token!=NULL){
+        values[counter] = token;
+        counter+=1;
+        token = strtok(NULL, " ");
     }
-    if(tokens.size()<2){
+    if(counter<2){
         cse4589_print_and_log("[%s:ERROR]\n", "LOGIN");
         cse4589_print_and_log("[%s:END]\n", "LOGIN");
         return 0;
     }
-    if(isValidAddr(tokens[1], tokens[2])==0){
+    cout<<"\nvalues"<<values[1]<<values[2];
+    if(isValidAddr(values[1], values[2])==0){
     	cse4589_print_and_log("[%s:ERROR]\n", "LOGIN");
         cse4589_print_and_log("[%s:END]\n", "LOGIN");
         return 0;
     }
-    char login_address[tokens[1].length()];
-    strcpy(login_address, tokens[1].c_str());
-    loginPort = stoi(tokens[2]);
     
-
     bzero(&remote_server_addr, sizeof(remote_server_addr));
     remote_server_addr.sin_family = AF_INET;
-    inet_pton(AF_INET, login_address, &remote_server_addr.sin_addr);
-    remote_server_addr.sin_port = htons(loginPort);
+    inet_pton(AF_INET, values[1], &remote_server_addr.sin_addr);
+    remote_server_addr.sin_port = htons(atoi(values[2]));
 	int n = connect(client_fd, (struct sockaddr*)&remote_server_addr, sizeof(remote_server_addr));
     if(n<0){
         cout<<"\nConnection Failed";
