@@ -111,8 +111,95 @@ int createServer(int PORT)
                          else if(strcmp("LIST",command)==0){
                             listCommand(command);
                          }
-                    
+                         else if(strcmp(command, "STATISTICS") == 0){
 
+							cse4589_print_and_log("[%s:SUCCESS]\n", command);
+							for (int i = 0; i < clientNo; i++){
+								char stat[25];
+								memset(stat,'\0',25);
+								if(clients[i].socketId > 0){
+									if(clients[i].loginStatus == 1){
+										strcpy(stat,"logged-in");
+									}
+									else if(clients[i].loginStatus == 0){
+										strcpy(stat,"logged-out");
+									}
+									else{
+										continue;
+									}
+									cse4589_print_and_log("%-5d%-35s%-8d%-8d%-8s\n", clients[i].no, clients[i].hostname, clients[i].sendMsgNum, clients[i].recvMsgNum, stat);
+								}
+							}
+							cse4589_print_and_log("[%s:END]\n", command);  
+						}
+                        else if(strncmp(command, "BLOCKED", 7)==0){
+
+							char *token;
+							token = strtok(command," ");
+							if(token!=NULL){
+								token = strtok(NULL," ");
+							}else{
+								cse4589_print_and_log("[%s:ERROR]\n", command);
+								cse4589_print_and_log("[%s:END]\n", command);
+								return 0;
+
+							}
+							char *check_b_ip;
+							strcpy(check_b_ip,token);
+							struct client blocklist[15];
+							int n = 0;
+							
+							for (int i = 0; i < clientNo; i++){
+								if(strcmp(clients[i].ip_addr,check_b_ip)==0){
+									if(clients[i].blockedNum>0){
+										for(int j = 0; j < clients[i].blockedNum;j++){
+											printf("%s\n", clients[i].blockedList[j]);
+											for (int m = 0; m < clientNo; m++){
+												if(strcmp(clients[m].ip_addr,clients[i].blockedList[j])==0){
+													strcpy(blocklist[n].hostname, clients[m].hostname);
+													strcpy(blocklist[n].ip_addr, clients[m].ip_addr);
+													blocklist[n].portNo = clients[m].portNo;
+													n++;
+													
+												}
+											}
+										}
+									}
+								}
+								
+							}
+
+                            struct client temp;
+                            int i = 1;
+                            int j, port;
+                            while(i<n){
+                                temp = blocklist[i];
+                                j = i -1;
+                                while(j>=0 && blocklist[j].portNo>temp.portNo){
+                                    blocklist[j+1] = blocklist[j];
+                                    j-=1;
+                                }
+                                blocklist[j+1]=temp;
+                                i+=1;
+                            }
+
+							// struct client temp;
+    						// for (int i = 0; i < n; i++){
+    						// 	for (int j = i + 1; j < n; j++){
+      						// 		if(blocklist[i].port_no>blocklist[j].port_no){
+       						// 			temp = blocklist[i];
+       						// 			blocklist[i] = blocklist[j];
+       						// 			blocklist[j] = temp;
+      
+      						// 		}
+     						// 	}
+    						// }
+    						cse4589_print_and_log("[%s:SUCCESS]\n", command);
+    						for(int i = 0; i < n; i++){
+    							cse4589_print_and_log("%-5d%-35s%-20s%-8d\n",i+1,blocklist[i].hostname,blocklist[i].ip_addr,blocklist[i].portNo);
+    						}
+							cse4589_print_and_log("[%s:END]\n", command);  
+						}
                     }
                     else if(i==server_fd){
                         // printf("\nAccepting connection");
@@ -139,8 +226,6 @@ int createServer(int PORT)
                         }
                         else {
                                 
-                                // char *cmd = buffer;
-                                // printf("\nClient sent me: %s\n", buffer);
                                 processCmdFromClient(buffer, i);	                        	
                                 fflush(stdout);
                         }
@@ -218,73 +303,58 @@ int processCmdFromClient(char *command, int sockIndex){
         }
         fflush(stdout);
         printf("\nMessage on server side:%s",message);
-        int target_socket = searchIpClient(senderIp);
-        printf("\nMessage on server side:%s for socket:%d",message,target_socket);
+        // printf("\nMessage on server side:%s for socket:%d",message,target_socket);
         
 
-        // int n = 0;
-        // int if_login = check_if_login(c_ip);
-        // int if_block = check_if_block(c_ip,sender_ip);
+        int n = 0;
+        int if_login = checkLogin(senderIp,structIndex);
+        int if_block = checkBlock(senderIp,clientIp,structIndex);
+        int target_socket;
+		if(if_login == 1 && if_block == 0){
+			target_socket = searchIpClient(senderIp);
+			if(target_socket > 0){
+				if(send(target_socket, message, strlen(message),0)>0){
+					n++;
+                    for (int i =0; i< clientNo;i++){
+						if(strcmp(clients[i].ip_addr,senderIp)==0){
+							clients[i].recvMsgNum++;
+							clients[structIndex].sendMsgNum++;
+							break;
+						}
+					}
 
-        target_socket = searchIpClient(senderIp);
-        if(send(target_socket, message, strlen(message),0)>0){
-					// n++;
-					// for (int i =0; i< client_num;i++){
-					// 	if(strcmp(clients[i].ip_addr,c_ip)==0){
-					// 		clients[i].recv_msg_num++;
-					// 		clients[sender_no].send_msg_num++;
-					// 		break;
-					// 	}
-					// }
+					}
 					fflush(stdout);
+				}
+		}
+		else if(if_login == 0 && if_block == 0){
+			if( target_socket = searchIpClient(senderIp)>0){
+				for (int i =0; i< clientNo;i++){
+					if(strcmp(clients[i].ip_addr,senderIp)==0&&clients[i].bufferMsg<100){
+						strcpy(clients[i].msgBuffer[clients[i].bufferMsg],message);
+						n++;
+						clients[i].bufferMsg++;
+						clients[structIndex].sendMsgNum++;
+						break;
+					}
+				}
+			}
+		}
+		else{
+        	cse4589_print_and_log("[RELAYED:ERROR]\n");
+        	cse4589_print_and_log("[RELAYED:END]\n");
 		}
 
-		// if(if_login == 1 && if_block == 0){
-		// 	target_socket = search_client_by_ip(c_ip);
-		// 	if(target_socket > 0){
-		// 		if(send(target_socket, send_buf, strlen(send_buf),0)>0){
-		// 			n++;
-		// 			for (int i =0; i< client_num;i++){
-		// 				if(strcmp(clients[i].ip_addr,c_ip)==0){
-		// 					clients[i].recv_msg_num++;
-		// 					clients[sender_no].send_msg_num++;
-		// 					break;
-		// 				}
-		// 			}
-		// 			fflush(stdout);
-		// 		}
-		// 	}
-		// }else if(if_login == 0 && if_block == 0){
-		// 	if( target_socket = search_client_by_ip(c_ip)>0){
-		// 		for (int i =0; i< client_num;i++){
-		// 			if(strcmp(clients[i].ip_addr,c_ip)==0&&clients[i].buffered_msg<100){
-		// 				strcpy(clients[i].msg_buffer[clients[i].buffered_msg],send_buf);
-		// 				n++;
-		// 				clients[i].buffered_msg++;
-		// 				clients[sender_no].send_msg_num++;
-		// 				break;
-		// 			}
-		// 		}
-		// 	}
-		// }
-		// else{
-        // 	cse4589_print_and_log("[RELAYED:ERROR]\n");
-        // 	cse4589_print_and_log("[RELAYED:END]\n");
-		// }
-
-		// if(n > 0){
-		// 	cse4589_print_and_log("[RELAYED:SUCCESS]\n");
-		// 	cse4589_print_and_log("msg from:%s, to:%s\n[msg]:%s\n", sender_ip, c_ip, c_msg);
-		// 	cse4589_print_and_log("[RELAYED:END]\n");
-		// }else{
-		// 	cse4589_print_and_log("[RELAYED:ERROR]\n");
-		// 	cse4589_print_and_log("[RELAYED:END]\n");
-		// }
-
-		// bzero(send_buf,BUFFER_SIZE);
-
-
+		if(n > 0){
+			cse4589_print_and_log("[RELAYED:SUCCESS]\n");
+			cse4589_print_and_log("msg from:%s, to:%s\n[msg]:%s\n", clientIp, senderIp, message);
+			cse4589_print_and_log("[RELAYED:END]\n");
+		}else{
+			cse4589_print_and_log("[RELAYED:ERROR]\n");
+			cse4589_print_and_log("[RELAYED:END]\n");
+		}
     }
+
     else if(strcmp("BLOCKIP",cmd) == 0){
         char ip[128];
         memset(ip,'\0',128);
@@ -301,11 +371,87 @@ int processCmdFromClient(char *command, int sockIndex){
                 bzero(clients[structIndex].blockedList[j],INET_ADDRSTRLEN);
                 break;
             }
-        }
+     }
     }
+    else if (strcmp("BROADCAST",cmd) == 0){
+    	int target = 0;
+        char *token;
+    	char message[1024];
+    	memset(message,'\0',1024);
+        int count = 0;
+		strcat(message,"msg_broad ");
+		strcat(message,clientIp);		
+        strcat(message," ");
+        token = strtok(cmd," ");
+        while(token!=NULL){
+            if(count!=0){
+                strcat(message,token);
+                strcat(message," ");
+            }
+            count+=1;
+            token = strtok(NULL," ");
+        }
+        int counter=0;
+		for(int i = 0; i < clientNo; i++){
+			if(i != structIndex){
+				target = clients[i].socketId;
+				if((clients[i].loginStatus == 1) && (checkBlock(clients[i].ip_addr,clientIp,structIndex) == 0)){
+					if(send(target, message, strlen(message),0)>0){
+						counter++;
+						clients[i].recvMsgNum++;
+						clients[structIndex].sendMsgNum++;
+						fflush(stdout);
+					}
+				}
+				else if(clients[i].loginStatus == 0 && checkBlock(clients[i].ip_addr,clientIp,structIndex) == 0){
+					for (int m =0; m< clientNo;m++){
+						if(strcmp(clients[m].ip_addr,clients[i].ip_addr)==0&&clients[m].bufferMsg<100){
+							strcpy(clients[m].msgBuffer[clients[m].bufferMsg],message);
+							counter++;
+							clients[m].bufferMsg++;
+							clients[structIndex].sendMsgNum++;
+						}
+					}
+				}
+			}
+		}
+		if(counter>0){
+			cse4589_print_and_log("[RELAYED:SUCCESS]\n");
+			cse4589_print_and_log("msg from:%s, to:%s\n[msg]:%s\n", clientIp, "255.255.255.255", message);
+			cse4589_print_and_log("[RELAYED:END]\n");
+		}else{
+			cse4589_print_and_log("[RELAYED:ERROR]\n");
+			cse4589_print_and_log("[RELAYED:END]\n");
+		}
+	}
     
     return 0;
    
+}
+
+int checkBlock(char *sender_ip,char *ip, int i){
+
+			for (int j = 0; j < clients[i].blockedNum; j++){
+
+				if(strcmp(clients[i].blockedList[j],sender_ip) == 0){
+					return 1;
+					break;
+				}
+        }
+	return 0;
+}
+
+int checkLogin(char *ip, int j){
+	
+	for(int i = 0; i< clientNo; i++){
+		
+		if(strcmp(clients[i].ip_addr,ip) == 0 && clients[i].loginStatus == 1){
+			return 1;
+			break;
+		}
+		
+	}
+	return 0;
 }
 
 int searchIpClient(char *ip){
@@ -334,24 +480,20 @@ void sendLoginUserList(int sockIndex, char *command){
     while(i<clientNo){
         if(clients[i].loginStatus>0){
             // printf("\nclient no:%d",clients[i].no);
-            strcat(clientMessage,"no:");
             memset(tempArray, '\0', 256);
             sprintf(tempArray,"%d",clients[i].no);
             strcat(clientMessage,tempArray);
             strcat(clientMessage,",");
             // clientMessage =  clientMessage + "hostname:" + clients[i].hostName;
             // printf("\nhost no:%s",clients[i].hostname);
-            strcat(clientMessage,"hostname:");
             strcat(clientMessage,clients[i].hostname);
             strcat(clientMessage,",");
             // clientMessage =  clientMessage + "ip:" + clients[i].ipAddr;
             // printf("\nip no:%s",clients[i].ip_addr);
-            strcat(clientMessage,"ip:");
             strcat(clientMessage,clients[i].ip_addr);
             strcat(clientMessage,",");
             // clientMessage =  clientMessage + "port:" + to_string(clients[i].portNo);
             // printf("\nport no:%d",clients[i].portNo);
-            strcat(clientMessage,"port:");
             memset(tempArray, '\0', 256);
             sprintf(tempArray,"%d",clients[i].portNo);
             strcat(clientMessage,tempArray);
@@ -362,9 +504,9 @@ void sendLoginUserList(int sockIndex, char *command){
     cout<<"\nMessage for client:"<<clientMessage;
     strcpy(message, clientMessage);
     int check = send(sockIndex, message, sizeof(message), 0);
-    if(check>0){
-        cout<<"\nDone "<<clientMessage;
-    }
+    // if(check>0){
+    //     cout<<"\nDone "<<clientMessage;
+    // }
     fflush(stdout);
 }
 

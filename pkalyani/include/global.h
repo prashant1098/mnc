@@ -27,6 +27,7 @@ void updateStruct(char *tokens);
 int login(char *command, int client_fd);
 int addToClients(int fdaccept, struct sockaddr_in client_addr, int i, int client_port);
 int isValidAddr(char *addr, char *port);
+int isAddr(char addr[]);
 
 int createServer(int port);
 void getIp(char *ip);
@@ -38,5 +39,7 @@ int processCmdFromClient(char *command, int sockIndex);
 void sendLoginUserList(int sockIndex, char *command);
 void sortList();
 int searchIpClient(char *ip);
+int checkBlock(char *sender_ip,char *ip, int i);
+int checkLogin(char *ip, int j);
 
 #endif

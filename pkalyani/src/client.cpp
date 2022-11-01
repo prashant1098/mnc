@@ -128,6 +128,7 @@ int createClient(int PORT)
                             char *token;
                             char *ip;
                             int counter = 0;
+                            int res = 0;
                             token = strtok(command," ");
                             while(token!=NULL){
                                 if(counter=1){
@@ -136,20 +137,35 @@ int createClient(int PORT)
                                 counter++;
                                 token = strtok (NULL, " ");
                             }
-                            char message[256];
-                            memset(message,'\0',256);
-                            strcat(message,"BLOCKIP");
-                            strcat(message,ip);
-                            if (send (client_fd, message, strlen(message), 0) > 0){
-								// printf("Done in BLOCK\n");
-								cse4589_print_and_log("[%s:SUCCESS]\n", command);
-								cse4589_print_and_log("[%s:END]\n", command);
-							}
+                            res =  isAddr(ip);
+                            int check = 0;
+                            for(int i=0;i<clientNumber;i++){
+                                if(strcmp(clientArray[i].ip_addr,ip)==0){
+                                    check = 1;
+                                    break;
+                                }
+                            }
+                            if(res==0 || check==0){
+                                cse4589_print_and_log("[%s:ERROR]\n", command);
+								cse4589_print_and_log("[%s:END]\n", command);	
+                            }
+                            else{
+                                char message[256];
+                                memset(message,'\0',256);
+                                strcat(message,"BLOCKIP");
+                                strcat(message,ip);
+                                if (send (client_fd, message, strlen(message), 0) > 0){
+                                    // printf("Done in BLOCK\n");
+                                    cse4589_print_and_log("[%s:SUCCESS]\n", command);
+                                    cse4589_print_and_log("[%s:END]\n", command);
+                                }
+                            }
                         }
                         else if(strncmp(command, "UNBLOCK", 7)==0){
                             char *token;
                             char *ip;
                             int counter = 0;
+                            int res;
                             token = strtok(command," ");
                             while(token!=NULL){
                                 if(counter=1){
@@ -158,14 +174,30 @@ int createClient(int PORT)
                                 counter++;
                                 token = strtok (NULL, " ");
                             }
-                            char message[256];
-                            memset(message,'\0',256);
-                            strcat(message,"UNBLOCKIP");
-                            strcat(message,ip);
-                            if(send(client_fd, message,strlen(message),0) == strlen(message)){
-                                cout<<"\nUNBlock executed";
-                                cse4589_print_and_log("[%s:SUCCESS]\n", command);
-								cse4589_print_and_log("[%s:END]\n", command);
+                            res =  isAddr(ip);
+                            int check = 0;
+                            for(int i=0;i<clientNumber;i++){
+                                if(strcmp(clientArray[i].ip_addr,ip)==0){
+                                    check = 1;
+                                    break;
+                                }
+                            }
+                            if(res==0 || check==0){
+                                cse4589_print_and_log("[%s:ERROR]\n", command);
+								cse4589_print_and_log("[%s:END]\n", command);	
+                            }
+                            
+
+                            else{
+                                char message[256];
+                                memset(message,'\0',256);
+                                strcat(message,"UNBLOCKIP");
+                                strcat(message,ip);
+                                if(send(client_fd, message,strlen(message),0) == strlen(message)){
+                                    cout<<"\nUNBlock executed";
+                                    cse4589_print_and_log("[%s:SUCCESS]\n", command);
+                                    cse4589_print_and_log("[%s:END]\n", command);
+                                }
                             }
                         }
                         else if(strncmp(command, "SEND", 4)==0){
@@ -173,7 +205,7 @@ int createClient(int PORT)
                             char *token;
                             int counter=0;
                             char *input[1024];
-
+                            int res;
                             token = strtok(command," ");
                             while(token!=NULL){
                                 input[counter] = token;
@@ -186,39 +218,78 @@ int createClient(int PORT)
 								cse4589_print_and_log("[%s:END]\n", command);	
 								break;							
 							}
-
-                            char *targetIp ;
-                            char message[1024];
-                            memset(message,'\0',1024);
-                            strcat(message,"SEND ");
-                            strcat(message,input[1]);
-                            strcat(message," ");
-                            if(counter>=2){
-                                for(int i=2;i<counter;i++){
-                                    strcat(message,input[i]);
-                                    strcat(message," ");
+                            res =  isAddr(input[1]);
+                            int check = 0;
+                            for(int i=0;i<clientNumber;i++){
+                                if(strcmp(clientArray[i].ip_addr,input[1])==0){
+                                    check = 1;
+                                    break;
                                 }
                             }
-                            int flag = 1;
-                            for(int i = 0;i<clientNumber;i++){
-								if(strcmp(clientArray[i].ip_addr,input[1])==0){
-									flag = 1;
-									break;
-								}
-							}
-                            if(flag > 0){
-                                printf("\nMessage:%s",message);
-								if (send (client_fd, message, strlen(message), 0) > 0){
-									printf("Done in SEND\n");
-									cse4589_print_and_log("[%s:SUCCESS]\n", command);
-									cse4589_print_and_log("[%s:END]\n", command);
-								}
-							}
-							else{
-								cse4589_print_and_log("[%s:ERROR]\n", command);
+                            if(res==0 || check==0){
+                                cse4589_print_and_log("[%s:ERROR]\n", command);
+								cse4589_print_and_log("[%s:END]\n", command);	
+                            }
+
+                            else{
+                                char *targetIp ;
+                                char message[1024];
+                                memset(message,'\0',1024);
+                                strcat(message,"SEND ");
+                                strcat(message,input[1]);
+                                strcat(message," ");
+                                if(counter>=2){
+                                    for(int i=2;i<counter;i++){
+                                        strcat(message,input[i]);
+                                        strcat(message," ");
+                                    }
+                                }
+                                int flag = 1;
+                                for(int i = 0;i<clientNumber;i++){
+                                    if(strcmp(clientArray[i].ip_addr,input[1])==0){
+                                        flag = 1;
+                                        break;
+                                    }
+                                }
+                                if(flag > 0){
+                                    printf("\nMessage:%s",message);
+                                    if (send (client_fd, message, strlen(message), 0) > 0){
+                                        printf("Done in SEND\n");
+                                        cse4589_print_and_log("[%s:SUCCESS]\n", command);
+                                        cse4589_print_and_log("[%s:END]\n", command);
+                                    }
+                                }
+                                else{
+                                    cse4589_print_and_log("[%s:ERROR]\n", command);
+                                    cse4589_print_and_log("[%s:END]\n", command);
+                                }
+                            }
+                        }
+                        else if(strncmp(command, "BROADCAST", 9) == 0){
+
+							char *token;
+                            char *cmd;
+							char message[1024];
+							memset(message,'\0',1024);
+                            strcat(message,"BROADCAST");
+							strcat(message," ");
+							token = strtok(command," ");
+                            if(token!=NULL){
+                                cmd = token;
+                                token = strtok(NULL," ");
+                            }
+							while(token!=NULL){
+                                strcpy(message,token);
+                                strcpy(message," ");
+                                token = strtok(NULL," ");
+                            }
+
+							if (send (client_fd, message, strlen(message), 0) > 0){
+								printf("Done in BROADCAST\n");
+								cse4589_print_and_log("[%s:SUCCESS]\n", command);
 								cse4589_print_and_log("[%s:END]\n", command);
 							}
-                        }
+						}
                     }
                     else{
                         // cout<<"\nValue of i is:"<<i;
@@ -243,6 +314,26 @@ int createClient(int PORT)
         }
     }
     return 0;
+}
+
+int isAddr(char addr[]){
+    int ret = 1;
+    int i =0;
+    // cout<<"addr length:"<<addr.length()<<"port length:"<<port.length();
+    while(i<INET_ADDRSTRLEN){
+        if(addr[i] == '\0') break;
+        if(addr[i] == '.'){
+            i+=1;
+            continue;
+        }
+        int t = addr[i] - '0';
+        if(t<0 || t>9) {
+            ret = 0;
+            break;
+        }
+        i+=1;
+    }
+    return ret;
 }
 
 int isValidAddr(char addr[], char port[]){
@@ -351,6 +442,31 @@ void processResFromServer(char *command){
     else if(strcmp(cmd,"CLIST") == 0){
         updateStruct(token);
     }
+    else if(strcmp(cmd,"msg_broad") == 0){
+		char message[1024];
+        char *ip;
+        memset(message,'\0',1024);
+		int i = 0;
+    	while( token != NULL){
+            if(i==1){
+                ip = token;
+            }
+            else if(i>1){
+                strcpy(message,token);
+                strcpy(message," ");
+            }
+			i++;
+    		token = strtok (NULL, " ");
+		}
+		if(i<1){
+			cse4589_print_and_log("[RECEIVED:ERROR]\n");
+        	cse4589_print_and_log("[RECEIVED:END]\n");
+        	return;
+		}
+		cse4589_print_and_log("[RECEIVED:SUCCESS]\n");
+		cse4589_print_and_log("msg from:%s\n[msg]:%s\n", ip, message);
+		cse4589_print_and_log("[RECEIVED:END]\n");
+	}
     else if(strcmp(cmd,"msg_send") == 0){
         char *temp[10];
 		int i = 0;
@@ -396,42 +512,28 @@ void updateStruct(char *tokens)
     for(int i=0;i<clientNumber;i++){
 
         printf("\nValues:%s",values[i]);
-        char *inner = strtok(values[i], ",");
+        inner = strtok(values[i], ",");
         char *p[10];
         int j = 0 ;
+        int count = 0;
         while(inner!=NULL){
-            // printf("\nInner:%s",inner);
-            p[j] = inner;
-            inner = strtok(NULL, ",");
-            j+=1;
-        }
-        int k =0 ;
-        while(k<j){
-            char *value = strtok(p[k], ":");
-            char *key;
-            if(value!=NULL){
-                key = value;
-                value = strtok(NULL, ":");
-                // printf("\nvalue:%s",value);
-                if(strcmp(key,"no")==0){
-                    clientArray[i].no = atoi(value);
-                    // printf("\n no:%d",clientArray[i].no);
-                }
-                else if(strcmp(key,"hostname")==0){
-                    strcpy(clientArray[i].hostname,value);
-                    // printf("\n hostname:%s",clientArray[i].hostname);
-                }
-                else if(strcmp(key,"ip")==0){
-                    strcpy(clientArray[i].ip_addr,value);
-                    // printf("\n ip_addr:%s",clientArray[i].ip_addr);
-                }
-                else if(strcmp(key,"port")==0){
-                    clientArray[i].portNo = atoi(value);
-                    // printf("\n portNo:%d",clientArray[i].portNo);
-                }
+            if(count==0){
+                clientArray[i].no = atoi(inner);
             }
-            k+=1;
+            else if(count==1){
+                 strcpy(clientArray[i].hostname,inner);
+            }
+            else if(count==2){
+                 strcpy(clientArray[i].ip_addr,inner);
+            }
+            else{
+                clientArray[i].portNo = atoi(inner);
+            }
+            count+=1;
+            inner = strtok(NULL,",");
+            fflush(stdout);	
         }
+
     }
         // cout<<"\nServer side client list:"<<clientArray;
 }
