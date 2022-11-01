@@ -615,11 +615,11 @@ int addToClients(int fdaccept, struct sockaddr_in client_addr, int j, int client
 	// printf("\nInside client");
     int i = 0;
     char *ip_addr = inet_ntoa(client_addr.sin_addr);
-    while(i<clientNo){
-        if(strcmp(clients[i].ip_addr,ip_addr)==0){
-            return j;
-        }
-    }
+    // while(i<clientNo){
+    //     if(strcmp(clients[i].ip_addr,ip_addr)==0){
+    //         return j;
+    //     }
+    // }
 
 	char host[1024];
 	char service[20];
